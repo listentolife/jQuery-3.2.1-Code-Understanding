@@ -2850,7 +2850,7 @@ jQuery.escapeSelector = Sizzle.escape;
  */
 
 var dir = function( elem, dir, until ) {
-	//matched为返回的节点数组，truncate赋值为截止节点元素，如果没有传入，则为null（猜测）
+	//matched为返回的元素数组，truncate赋值为截止节点元素，如果没有传入，则为null（猜测）
 	var matched = [],
 		truncate = until !== undefined;
 
@@ -2868,20 +2868,28 @@ var dir = function( elem, dir, until ) {
 			matched.push( elem );
 		}
 	}
-	//返回节点数组
+	//返回元素数组
 	return matched;
 };
 
+/*
+ *针对siblings()跟children()又抽象了siblings()（一个是被选元素的所有同胞元素，另一个是所有直接子元素）
+ *传入2个参数：
+ *n为同胞元素的第一个元素，elem为被选元素（当调用siblings()时会传入）
+ */
 
 var siblings = function( n, elem ) {
+	//matched为返回的元素数组
 	var matched = [];
 
+	//for循环中，n会一直被赋值为相邻同胞元素，直到最后一个同胞元素
 	for ( ; n; n = n.nextSibling ) {
+		//如果n为元素节点且不等于被选元素，则push入数组
 		if ( n.nodeType === 1 && n !== elem ) {
 			matched.push( n );
 		}
 	}
-
+	//返回元素数组
 	return matched;
 };
 
@@ -3206,7 +3214,16 @@ jQuery.fn.extend( {
 	}
 } );
 
+/*
+ *next()跟prev()都只是返回一个节点元素值，所以单独抽象成sibling()
+ *传入2个参数：
+ *cur为当前节点元素，dir为目标节点元素字符串
+ */
+
 function sibling( cur, dir ) {
+	//while循环中，cur会被循环赋值为当前节点的目标节点元素
+	//同时会判断是否为当前cur的节点类型是否为元素节点
+	//不是则继续循环赋值，是则退出循环，返回cur
 	while ( ( cur = cur[ dir ] ) && cur.nodeType !== 1 ) {}
 	return cur;
 }
@@ -3227,9 +3244,11 @@ jQuery.each( {
 	parentsUntil: function( elem, i, until ) {
 		return dir( elem, "parentNode", until );
 	},
+	//next()接口，返回被选元素的下一个同胞元素
 	next: function( elem ) {
 		return sibling( elem, "nextSibling" );
 	},
+	//prev()接口，返回被选元素的上一个同胞元素
 	prev: function( elem ) {
 		return sibling( elem, "previousSibling" );
 	},
@@ -3249,9 +3268,12 @@ jQuery.each( {
 	prevUntil: function( elem, i, until ) {
 		return dir( elem, "previousSibling", until );
 	},
+	//siblings()接口，返回被选元素的所有同胞元素
 	siblings: function( elem ) {
+		//传入了直接父元素的第一个直接子元素或者空集合的第一个子元素（其实也为空）
 		return siblings( ( elem.parentNode || {} ).firstChild, elem );
 	},
+	//children()接口，返回被选元素的所有直接子元素
 	children: function( elem ) {
 		return siblings( elem.firstChild );
 	},
