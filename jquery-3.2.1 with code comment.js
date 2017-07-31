@@ -13,23 +13,23 @@
  */
 
 /*!
- *1.JQ源码的整体是一个匿名函数，只看结构如下:
- *( function (global, factory) {
- *  ...  
- *})(a, b);
- *其中a为：
- *typeof window !== "undefined" ? window : this
- *b为：
- *function( window, noGlobal ) {
- *  ...
- *}
- *这种形式的匿名函数是会被立即执行的，不需要写条用函数
- *其中global是环境参，赋值Window，factory赋值一个实现JQ各种功能的外部函数
+ * 1.JQ源码的整体是一个匿名函数，只看结构如下:
+ * ( function (global, factory) {
+ *   ...  
+ * })(a, b);
+ * 其中a为：
+ * typeof window !== "undefined" ? window : this
+ * b为：
+ * function( window, noGlobal ) {
+ *   ...
+ * }
+ * 这种形式的匿名函数是会被立即执行的，不需要写调用函数
+ * 其中global是环境参，赋值Window，factory赋值一个实现JQ各种功能的外部函数
  *
- *2.匿名函数中的代码是用来兼容nodejs等其他js框架
+ * 2.匿名函数中的代码是用来兼容nodejs等其他js框架
  *
- *3.typeof window !== "undefined" ? window : this
- *用于判断当前执行环境是否支持Window类型，是的话返回Window，否则返回this
+ * 3.typeof window !== "undefined" ? window : this
+ * 用于判断当前执行环境是否支持Window类型，是的话返回Window，否则返回this
  */
 
 
@@ -38,7 +38,9 @@
 	"use strict";
 
 	/*
-	 *先判断是否用的是CommonJS规范的框架
+	 * 先判断是否用的是CommonJS规范的框架
+	 * 这里判断的是module是否是对象，跟module.exports是否为对象类型
+	 * 是则为CommonJS规范，进去，否则直接引入JQ功能的外部函数
 	 */
 
 	if ( typeof module === "object" && typeof module.exports === "object" ) {
@@ -51,11 +53,13 @@
 		// e.g. var jQuery = require("jquery")(window);
 		// See ticket #14549 for more info.
 
-		//三目运算符，先判断当前环境是否支持window.document属性
+		// 三目运算符，先判断当前环境是否支持window.document属性
+		// （这里的global后面直接传值window，所以就是指window.document）
 		module.exports = global.document ?
-			//支持则直接把JQ的功能函数扩展到框架中
+			// 支持则直接把JQ的功能函数扩展到框架中
 			factory( global, true ) :
-			//不支持则扔出Error说明该环境不适用JQ，但依旧返回实现JQ功能的外部函数
+			// 不支持则扔出Error说明该环境不适用JQ，
+			// 但依旧返回实现JQ功能的外部函数
 			function( w ) {
 				if ( !w.document ) {
 					throw new Error( "jQuery requires a window with a document" );
@@ -3016,10 +3020,18 @@ var rootjQuery,
 	// Shortcut simple #id case for speed
 	rquickExpr = /^(?:\s*(<[\w\W]+>)[^>]*|#([\w-]+))$/,
 
-	//init函数返回值都是this，就是jQuery支持链式调用的原因，源码初始化的时候返回this就是指返回jQuery对象本身，所以可以已经调用
+	// init函数返回值都是this，就是jQuery支持链式调用的原因，源码初始化的时候返回this就是指返回jQuery对象本身，所以可以已经调用
 	init = jQuery.fn.init = function( selector, context, root ) {
 		var match, elem;
 
+		/*
+		 * jQuery接受的参数方式有这几类：
+		 * (""/null/undefined/false), (string, context, root), 
+		 * (DOMElement), (function), ($...)
+		 */
+
+
+		// $(""/null/undefined/false)直接返回this
 		// HANDLE: $(""), $(null), $(undefined), $(false)
 		if ( !selector ) {
 			return this;
@@ -3097,6 +3109,7 @@ var rootjQuery,
 				return this.constructor( context ).find( selector );
 			}
 
+		// $(DOMElement)时，将DOM对象转化为伪数组返回
 		// HANDLE: $(DOMElement)
 		} else if ( selector.nodeType ) {
 			this[ 0 ] = selector;
@@ -3277,6 +3290,7 @@ jQuery.each( {
 	children: function( elem ) {
 		return siblings( elem.firstChild );
 	},
+	//contents()接口，获得匹配元素集合中每个元素的子节点，包括文本和注释节点
 	contents: function( elem ) {
         if ( nodeName( elem, "iframe" ) ) {
             return elem.contentDocument;
@@ -10312,7 +10326,6 @@ var
 	_$ = window.$;
 
 //deep是传入的自定义变量，可以调用noConflict函数后将被当作jQuery用
-//
 jQuery.noConflict = function( deep ) {
 	if ( window.$ === jQuery ) {
 		window.$ = _$;
@@ -10329,6 +10342,7 @@ jQuery.noConflict = function( deep ) {
 // (#7102#comment:10, https://github.com/jquery/jquery/pull/557)
 // and CommonJS for browser emulators (#13566)
 if ( !noGlobal ) {
+	//这里将jQuery同时赋给window.jQuery和window.$，构造函数直接调用
 	window.jQuery = window.$ = jQuery;
 }
 
