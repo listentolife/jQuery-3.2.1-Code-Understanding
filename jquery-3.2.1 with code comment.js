@@ -795,13 +795,18 @@ try {
 
 function Sizzle( selector, context, results, seed ) {
 	var m, i, elem, nid, match, groups, newSelector,
+		// newChontext接收传参context.ownerDocument，如果没有则使用默认值
 		newContext = context && context.ownerDocument,
 
+		// 这里获取参数context的nodeType，如果有则获取，没有就直接赋值9，表示为Document整个文档
 		// nodeType defaults to 9, since context defaults to document
 		nodeType = context ? context.nodeType : 9;
 
+	// 参数results后面会被返回，如果没有传入则赋空集合
 	results = results || [];
 
+	// Sizzle做第一部判断，先对一些简单的情况作了处理，不需要select解析的就直接返回结果
+	// 这里判断了几种情况下直接返回结果的：selector不是字符串，没有传参，context判断不为元素，Document或者DocumentFragment(轻量级Document对象)
 	// Return early from calls with invalid selector or context
 	if ( typeof selector !== "string" || !selector ||
 		nodeType !== 1 && nodeType !== 9 && nodeType !== 11 ) {
@@ -809,6 +814,7 @@ function Sizzle( selector, context, results, seed ) {
 		return results;
 	}
 
+	// 当没有传参seed时进入if
 	// Try to shortcut find operations (as opposed to filters) in HTML documents
 	if ( !seed ) {
 
