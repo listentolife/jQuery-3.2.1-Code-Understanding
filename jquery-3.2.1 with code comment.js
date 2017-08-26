@@ -591,16 +591,16 @@ var Sizzle =
 (function( window ) {
 
 var i,
-	support,
+	support,    // 后面会初始化为对象，保存支持性
 	Expr,
 	getText,
-	isXML,
+	isXML,    // 判断是否为XML
 	tokenize,
 	compile,
 	select,
-	outermostContext,
+	outermostContext,    // 最大查找范围
 	sortInput,
-	hasDuplicate,
+	hasDuplicate,    // 判断刚检查完的两个元素是否重复
 
 	// Local document vars
 	setDocument,
@@ -613,13 +613,20 @@ var i,
 	contains,
 
 	// Instance-specific data
+	// 用来对特殊的函数进行标记
 	expando = "sizzle" + 1 * new Date(),
+	// 倾向于使用的文档节点
 	preferredDoc = window.document,
 	dirruns = 0,
 	done = 0,
+	/**
+	 * 这里的classCache，tokenCache及compilerCache都为缓存池
+	 * creatCache方法内建cache闭包方法，通过creatCache(key,value)的形式进行存储，通过creatCache[key + ' ']来进行获取
+	 */
 	classCache = createCache(),
 	tokenCache = createCache(),
 	compilerCache = createCache(),
+	// sortOrder用来判断两个值是否完全相等，并将hasDuplicate置值为true
 	sortOrder = function( a, b ) {
 		if ( a === b ) {
 			hasDuplicate = true;
@@ -636,6 +643,7 @@ var i,
 	slice = arr.slice,
 	// Use a stripped-down indexOf as it's faster than native
 	// https://jsperf.com/thor-indexof-vs-for/5
+	// 这里直接放弃掉原生indexOf方法，因为作者认为这个处理速度更快
 	indexOf = function( list, elem ) {
 		var i = 0,
 			len = list.length;
@@ -647,17 +655,53 @@ var i,
 		return -1;
 	},
 
+	// 用来在做属性选择的时候进行判断
 	booleans = "checked|selected|async|autofocus|autoplay|controls|defer|disabled|hidden|ismap|loop|multiple|open|readonly|required|scoped",
 
 	// Regular expressions
 
 	// http://www.w3.org/TR/css3-selectors/#whitespace
+	// 空白符的几种类型：空格(\x20)，tab(\t)，回车(\r)，换行(\n)等，用\来表示转义，所以出现两个斜杠
 	whitespace = "[\\x20\\t\\r\\n\\f]",
 
 	// http://www.w3.org/TR/CSS21/syndata.html#value-def-identifier
+	// W3C文档规定，css标识符只能包含[a-zA-Z0-9]和ISO 10646标准中的U+00A0和它之后的字符，以及中划线、下划线。不能艺术字，两个中划线或者中划线后跟一个数字作为标识符的开始。标识符也可以包含转义字符和任意ISO 10646作为数字编码。例如 “B&W?”可以写成“B\26 W\3F”
+	/**
+	 * 这里的正则(?:x)表示这正则是非捕捉正则，匹配但不保存为子组，
+	 * 不能使用$1-$9来操作。正则中写明了有三种情况可以匹配：
+	 * "\\\\."： “\\”连个反斜杠表示一个反斜杠，“\\\\”就表示两个反斜杠字符串，
+	 * “.”表示出了\n外的任意字符，即可以匹配“\\a”,“\\1”这种字符；
+	 * "[\\w-]": 表示“[a-zA-Z0-9_-]”；
+	 * "[^\0-\\xa0]": 这个是为了满足W3C中字符要是“U+00A0”以及其后的字符的要求。
+	 * \0是8进制表示法，\xa0是16进制表示法，和“U+00A0”相等。这里匹配包括空格的
+	 * \0-\\xa0，\xa0代表“&nbsp;”，空格。
+	 */
 	identifier = "(?:\\\\.|[\\w-]|[^\0-\\xa0])+",
 
 	// Attribute selectors: http://www.w3.org/TR/selectors/#attribute-selectors
+	/**
+	 * 正则简化后：
+	 * \[ [\x20\t\r\n\f]* 
+	 * ((?:\\.|[\w-]|[^\0-\xa0])+) 
+	 * (?: 
+	 *     [\x20\t\r\n\f]* 
+	 *     ([*^$|!~]?=) 
+	 *     [\x20\t\r\n\f]*
+	 *     (?:
+	 *         ((?:\\.|[^\\'])*) 
+	 *         | "((?:\\.|[^\\"])*)"
+	 *         | ((?:\\.|[\w-]|[^\0-\xa0])+)
+	 *     ) | 
+	 * )
+	 * [\x20\t\r\n\f]* \]
+
+
+	 * (?:['"]) ((?:\\.|[^\\])*?) \3 | () |)|)
+	 * [\x20\t\r\n\f]*\ 
+	 *
+	 * \\[ [\\x20\\t\\r\\n\\f]* ((?:\\\\.|[\\w-]|[^\0-\\xa0])+) (?: [\\x20\\t\\r\\n\\f]* ([*^$|!~]?=) [\\x20\\t\\r\\n\\f]* (?:'((?:\\\\.|[^\\\\'])*)'|\"((?:\\\\.|[^\\\\\"])*)\"|((?:\\\\.|[\\w-]|[^\0-\\xa0])+))|) [\\x20\\t\\r\\n\\f]*\\]
+	 */
+
 	attributes = "\\[" + whitespace + "*(" + identifier + ")(?:" + whitespace +
 		// Operator (capture 2)
 		"*([*^$|!~]?=)" + whitespace +
@@ -938,17 +982,25 @@ function Sizzle( selector, context, results, seed ) {
  *	property name the (space-suffixed) string and (if the cache is larger than Expr.cacheLength)
  *	deleting the oldest entry
  */
+/**
+ * createCache方法只用了3次，分别用于class，token及compiler缓存池
+ * createCache方法中使用cache闭包函数处理传入的key跟value
+ * 并返回存入键值对的cache
+ * 键值保存形式为cache[key + ' '] = value，key后面加空格是为了避免覆盖原生属性
+ */
 function createCache() {
 	var keys = [];
 
 	function cache( key, value ) {
 		// Use (key + " ") to avoid collision with native prototype properties (see Issue #157)
+		// Expr.cacheLength设定为50，如果缓存池存入数据后超过50个，则先弹出最早存入的键值对，再存入key，value
 		if ( keys.push( key + " " ) > Expr.cacheLength ) {
 			// Only keep the most recent entries
 			delete cache[ keys.shift() ];
 		}
 		return (cache[ key + " " ] = value);
 	}
+	// 最后返回cache缓存池 
 	return cache;
 }
 
@@ -2215,15 +2267,32 @@ function setFilters() {}
 setFilters.prototype = Expr.filters = Expr.pseudos;
 Expr.setFilters = new setFilters();
 
+/*tokenize是Sizzle内部封装的一个方法，该方法负责将css选择器分解为一个数组，
+ *数组的每一项是一个对象，格式如下：
+ *{
+ *    "type": "Class",
+ *    "value": ".red",
+ *    "matchs": ""
+ *}
+ *tokenize方法传入两个值，一个是selector，为代解析的选择器字符串；
+ *另一个是parseOnly，如果传入值为true，则说明本次调用是匹配子选择器
+ */
 tokenize = Sizzle.tokenize = function( selector, parseOnly ) {
+	
+	// 这里的soFor是表示目前还未分析的字符串剩余部分
+	// groups表示目前已经匹配到的规则组
 	var matched, match, tokens, type,
 		soFar, groups, preFilters,
+		// cached获取缓存中的结果，tokenCache缓存池中如果存在key为selector的值，则会返回赋值给cached
 		cached = tokenCache[ selector + " " ];
 
+	// 如果缓存中有selector对应的解析结果，则执行if中语句
 	if ( cached ) {
+		// parseOnly为true，说明是有子选择器，则返回0，为false，说明有有选择器字符串，可一直返回cached所有结果
 		return parseOnly ? 0 : cached.slice( 0 );
 	}
 
+	// soFor初始值为整个选择器字符串，groups初始值为空集合
 	soFar = selector;
 	groups = [];
 	preFilters = Expr.preFilter;
